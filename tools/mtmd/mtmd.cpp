@@ -101,6 +101,7 @@ enum mtmd_slice_tmpl {
     MTMD_SLICE_TMPL_MINICPMV_2_5,
     MTMD_SLICE_TMPL_MINICPMV_2_6,
     MTMD_SLICE_TMPL_LLAMA4,
+    MTMD_SLICE_TMPL_MLLAMA,
     MTMD_SLICE_TMPL_IDEFICS3,
     MTMD_SLICE_TMPL_LFM2,
     MTMD_SLICE_TMPL_STEP3VL,
@@ -389,6 +390,15 @@ struct mtmd_context {
                     LOG_WRN("%s: llama 4 vision is known to have degraded quality:\n"
                             "    https://github.com/ggml-org/llama.cpp/pull/13282\n", __func__);
                     image_preproc = std::make_unique<mtmd_image_preprocessor_llava_uhd>(ctx_v);
+                } break;
+            case PROJECTOR_TYPE_MLLAMA:
+                {
+                    // Set the boundary string identifiers
+                    img_beg = "<|image_start|>";
+                    img_end = "<|image_end|>";
+                    // Assign slice templates
+                    slice_tmpl = MTMD_SLICE_TMPL_MLLAMA;
+                    image_preproc = std::make_unique<mtmd_image_preprocessor_mllama>(ctx_v);
                 } break;
             case PROJECTOR_TYPE_STEP3VL:
                 {
@@ -774,6 +784,7 @@ struct mtmd_tokenizer {
                 ctx->slice_tmpl == MTMD_SLICE_TMPL_MINICPMV_2_5
                 || ctx->slice_tmpl == MTMD_SLICE_TMPL_MINICPMV_2_6
                 || ctx->slice_tmpl == MTMD_SLICE_TMPL_LLAMA4
+                || ctx->slice_tmpl == MTMD_SLICE_TMPL_MLLAMA
                 || ctx->slice_tmpl == MTMD_SLICE_TMPL_IDEFICS3
                 || ctx->slice_tmpl == MTMD_SLICE_TMPL_STEP3VL
                 || (ctx->slice_tmpl == MTMD_SLICE_TMPL_LFM2 && has_tiling_grid)

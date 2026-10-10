@@ -1427,3 +1427,111 @@ bool mtmd_image_preprocessor_youtuvl::preprocess(const clip_image_u8 & img, clip
     output.entries.push_back(std::move(img_f32));
     return true;
 }
+
+//
+// mtmd_image_preprocessor_mllama
+//
+
+bool mtmd_image_preprocessor_mllama::preprocess(const clip_image_u8 & img, clip_image_f32_batch & output) {
+    GGML_ASSERT(hparams.image_size > 0);
+    
+    // Capture original dimensions
+    const clip_image_size original_size{img.nx, img.ny};
+    
+    // Compute aspect-ratio preserved tile mapping
+    // Mllama cuts images into a grid of tiles (e.g., up to 4 tiles based on configuration scales)
+    const int tile_dim = hparams.image_size; // Typically 560 for Mllama
+    const int align_size = hparams.patch_size * (hparams.n_merge > 0 ? hparams.n_merge : 1);
+    
+    const clip_image_size target_size = img_tool::calc_size_preserved_ratio(
+        original_size,
+        align_size,
+        hparams.image_min_pixels > 0 ? hparams.image_min_pixels : tile_dim * tile_dim,
+        hparams.image_max_pixels > 0 ? hparams.image_max_pixels : tile_dim * tile_dim * 4
+    );
+
+    // Perform bilinear image resize matching standard Mllama resolution targets
+    clip_image_u8 resized_image;
+    img_tool::resize(img, resized_image, target_size, RESIZE_ALGO_BILINEAR, /*add_padding=*/false);
+
+    // Create the unified full-image overview tile
+    clip_image_u8 overview_tile;
+    img_tool::resize(resized_image, overview_tile, {tile_dim, tile_dim}, RESIZE_ALGO_BILINEAR, /*add_padding=*/true);
+    
+    clip_image_f32_ptr overview_f32(clip_image_f32_init());
+    img_u8_to_f32(overview_tile, *overview_f32, hparams.image_mean, hparams.image_std);
+    output.entries.push_back(std::move(overview_f32));
+
+    // Slice remaining aspect-ratio chunks into independent high-precision grids
+    int grid_x = std::max(1, target_size.width / tile_dim);
+    int grid_y = std::max(1, target_size.height / tile_dim);
+    
+    for (int y = 0; y < grid_y; ++y) {
+        for (int x = 0; x < grid_x; ++x) {
+            clip_image_u8 slice_tile;
+            img_tool::crop(resized_image, slice_tile, x * tile_dim, y * tile_dim, tile_dim, tile_dim);
+            
+            clip_image_f32_ptr slice_f32(clip_image_f32_init());
+            img_u8_to_f32(slice_tile, *slice_f32, hparams.image_mean, hparams.image_std);
+            output.entries.push_back(std::move(slice_f32));
+        }
+    }
+
+    // Assign the grid coordinate metrics back to the multimodal execution block
+    output.grid_x = grid_x;
+    output.grid_y = grid_y;
+
+    return true;
+}
+/*
+bool mtmd_image_preprocessor_mllama::preprocess(const clip_image_u8 & img, clip_image_f32_batch & output) {
+    GGML_ASSERT(hparams.image_size > 0);
+    
+    // 1. Capture original image dimension properties
+    const clip_image_size original_size{img.nx, img.ny};
+    
+    // 2. Compute aspect-ratio preserved tile mapping boundaries
+    const int tile_dim = hparams.image_size; // Typically 560 for Mllama
+    const int align_size = hparams.patch_size * (hparams.n_merge > 0 ? hparams.n_merge : 1);
+    
+    const clip_image_size target_size = img_tool::calc_size_preserved_ratio(
+        original_size,
+        align_size,
+        hparams.image_min_pixels > 0 ? hparams.image_min_pixels : tile_dim * tile_dim,
+        hparams.image_max_pixels > 0 ? hparams.image_max_pixels : tile_dim * tile_dim * 4
+    );
+
+    // 3. Perform bilinear image resize matching standard Mllama resolution targets
+    clip_image_u8 resized_image; */
+    //img_tool::resize(img, resized_image, target_size, RESIZE_ALGO_BILINEAR, /*add_padding=*/false);
+
+    // 4. Create the unified full-image overview tile
+    //clip_image_u8 overview_tile;
+    //img_tool::resize(resized_image, overview_tile, {tile_dim, tile_dim}, RESIZE_ALGO_BILINEAR, /*add_padding=*/true);
+    /*
+    clip_image_f32_ptr overview_f32(clip_image_f32_init());
+    img_u8_to_f32(overview_tile, *overview_f32, hparams.image_mean, hparams.image_std);
+    output.entries.push_back(std::move(overview_f32));
+
+    // 5. Slice remaining aspect-ratio chunks into independent high-precision grids
+    int grid_x = std::max(1, target_size.width / tile_dim);
+    int grid_y = std::max(1, target_size.height / tile_dim);
+    
+    for (int y = 0; y < grid_y; ++y) {
+        for (int x = 0; x < grid_x; ++x) {
+            clip_image_u8 slice_tile;
+            img_tool::crop(resized_image, slice_tile, x * tile_dim, y * tile_dim, tile_dim, tile_dim);
+            
+            clip_image_f32_ptr slice_f32(clip_image_f32_init());
+            img_u8_to_f32(slice_tile, *slice_f32, hparams.image_mean, hparams.image_std);
+            output.entries.push_back(std::move(slice_f32));
+        }
+    }
+
+    // Assign the grid metrics back to the multimodal execution layer
+    output.grid_x = grid_x;
+    output.grid_y = grid_y;
+
+    return true;
+}
+*/

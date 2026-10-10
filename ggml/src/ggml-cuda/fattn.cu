@@ -371,6 +371,24 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
 
     const int cc = ggml_cuda_info().devices[device].cc;
 
+    // SM70 (Volta) V100 Patch
+    //
+    // Fixes: crash with CUDA FA when loading/running
+    // model architectures featuring non-standard head size 
+    //
+    // Example: Mistral-Small-4
+    //
+    if (cc == GGML_CUDA_CC_VOLTA) {
+        int dkq = Q->ne[0];
+
+        // If non-standard, (power-of-two: 64, 128, 256), head size 
+        // fallback to cuBLAS processing layer
+        //
+        if (dkq != 64 && dkq != 128 && dkq != 256) {
+            return BEST_FATTN_KERNEL_NONE;
+        }
+    }
+
     switch (K->ne[0]) {
         case  40:
         case  64:

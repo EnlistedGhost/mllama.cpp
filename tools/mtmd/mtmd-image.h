@@ -177,3 +177,8 @@ struct mtmd_image_preprocessor_youtuvl : mtmd_image_preprocessor {
     mtmd_image_preprocessor_youtuvl(const clip_ctx * ctx) : mtmd_image_preprocessor(ctx) {}
     bool preprocess(const clip_image_u8 & img, clip_image_f32_batch & output) override;
 };
+
+struct mtmd_image_preprocessor_mllama : mtmd_image_preprocessor {
+    mtmd_image_preprocessor_mllama(const clip_ctx * ctx) : mtmd_image_preprocessor(ctx) {}
+    bool preprocess(const clip_image_u8 & img, clip_image_f32_batch & output) override;
+};

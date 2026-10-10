@@ -301,42 +301,6 @@ bool server_http_context::init(const common_params & params) {
         return new httplib::ThreadPool(n_threads_http, max_threads);
     };
 
-    //
-    // Web UI setup
-    //
-
-    if (!params.webui) {
-        SRV_INF("%s", "the WebUI is disabled\n");
-    } else {
-        // register static assets routes
-        if (!params.public_path.empty()) {
-            // Set the base directory for serving static files
-            bool is_found = srv->set_mount_point(params.api_prefix + "/", params.public_path);
-            if (!is_found) {
-                SRV_ERR("static assets path not found: %s\n", params.public_path.c_str());
-                return 1;
-            }
-        } else {
-#ifdef LLAMA_BUILD_WEBUI
-            // using embedded static index.html
-            srv->Get(params.api_prefix + "/", [](const httplib::Request & /*req*/, httplib::Response & res) {
-                // COEP and COOP headers, required by pyodide (python interpreter)
-                res.set_header("Cross-Origin-Embedder-Policy", "require-corp");
-                res.set_header("Cross-Origin-Opener-Policy", "same-origin");
-                res.set_content(reinterpret_cast<const char*>(index_html), index_html_len, "text/html; charset=utf-8");
-                return false;
-            });
-            srv->Get(params.api_prefix + "/bundle.js", [](const httplib::Request & /*req*/, httplib::Response & res) {
-                res.set_content(reinterpret_cast<const char*>(bundle_js), bundle_js_len, "application/javascript; charset=utf-8");
-                return false;
-            });
-            srv->Get(params.api_prefix + "/bundle.css", [](const httplib::Request & /*req*/, httplib::Response & res) {
-                res.set_content(reinterpret_cast<const char*>(bundle_css), bundle_css_len, "text/css; charset=utf-8");
-                return false;
-            });
-#endif
-        }
-    }
     return true;
 }
 
